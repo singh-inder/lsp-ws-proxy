@@ -1,79 +1,123 @@
 name: Upload Binaries
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Used when manually triggering workflow. Takes precedence over git tag
+        required: true
+        type: string
 
 jobs:
   upload:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
-          - name: linux
+          - name: linux-x64
             os: ubuntu-latest
-            bin_file: lsp-ws-proxy
-          - name: macos
+            target: x86_64-unknown-linux-gnu
+          - name: linux-arm64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+
+          - name: macos-x64
             os: macos-latest
-            bin_file: lsp-ws-proxy
-          - name: windows
+            target: x86_64-apple-darwin
+          - name: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+
+          - name: windows-x64
             os: windows-latest
-            bin_file: lsp-ws-proxy.exe
+            target: x86_64-pc-windows-msvc
+          - name: windows-arm64
+            os: windows-latest
+            target: aarch64-pc-windows-msvc
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+
+      - shell: bash
+        run: |
+          set -euo pipefail
+          bin="lsp-ws-proxy"
+          assetName="${bin}_${{matrix.name}}"
+          if [[ "${{matrix.os}}" == "windows-latest" ]]; then
+            assetName="${bin}_${{matrix.name}}.exe"
+            bin="$bin.exe" 
+          fi
+          tag_name="$([[ ${{ github.ref_type }}  != "tag" ]] && echo ${{ inputs.version }} || echo ${{ github.ref_name }})"
+          echo "BIN_FILE=$bin" >> $GITHUB_ENV
+          echo "ASSET_NAME=$assetName" >> $GITHUB_ENV
+          echo "TAG_NAME=$tag_name" >> $GITHUB_ENV
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@1.82.0
         with:
-          override: true
-          toolchain: stable
-          profile: minimal
-      - uses: Swatinem/rust-cache@v1
-      - uses: actions-rs/cargo@v1
+          targets: ${{matrix.target}}
+
+      - uses: clechasseur/rs-cargo@v3.0.6
         with:
+          tool: cross
           command: build
-          args: --release --locked
+          args: --verbose --release --locked --target ${{matrix.target}}
 
-      - run: cd target/release && tar czf ${{ matrix.bin_file }}.tar.gz ${{ matrix.bin_file }}
+      - run: ls -lR target
+#      - run: cd target/release && tar czf ${{ env.BIN_FILE }}.tar.gz ${{ env.BIN_FILE }}
 
-      - name: Upload Binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      - name: Upload Binary
+#        uses: actions/upload-release-asset@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{ github.event.release.upload_url }}
+#          asset_path: target/release/${{ env.BIN_FILE }}.tar.gz
+#          asset_name: lsp-ws-proxy_${{ matrix.name }}.tar.gz
+#          asset_content_type: application/octet-stream
+
+      - name: Release
+        uses: svenstaro/upload-release-action@v2
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: target/release/${{ matrix.bin_file }}.tar.gz
-          asset_name: lsp-ws-proxy_${{ matrix.name }}.tar.gz
-          asset_content_type: application/octet-stream
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/${{ matrix.target }}/release/${{ env.BIN_FILE }}
+          asset_name: ${{ env.ASSET_NAME }}
+          tag: ${{ env.TAG_NAME }}
+          check_duplicates: true
+          overwrite: true
 
-  upload_musl:
-    runs-on: ubuntu-latest
-    env:
-      TARGET: x86_64-unknown-linux-musl
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          override: true
-          toolchain: stable
-          profile: minimal
-          target: ${{ env.TARGET }}
-      - uses: Swatinem/rust-cache@v1
-
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --release --locked --target x86_64-unknown-linux-musl
-
-      - run: cd target/${{ env.TARGET }}/release && tar czf lsp-ws-proxy.tar.gz lsp-ws-proxy
-
-      - name: Upload Binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: target/${{ env.TARGET }}/release/lsp-ws-proxy.tar.gz
-          asset_name: lsp-ws-proxy_linux-musl.tar.gz
-          asset_content_type: application/octet-stream
+#  upload_musl:
+#    runs-on: ubuntu-latest
+#    env:
+#      TARGET: x86_64-unknown-linux-musl
+#    steps:
+#      - uses: actions/checkout@v2
+#      - uses: actions-rs/toolchain@v1
+#        with:
+#          override: true
+#          toolchain: stable
+#          profile: minimal
+#          target: ${{ env.TARGET }}
+#      - uses: Swatinem/rust-cache@v1
+#
+#      - uses: actions-rs/cargo@v1
+#        with:
+#          use-cross: true
+#          command: build
+#          args: --release --locked --target x86_64-unknown-linux-musl
+#
+#      - run: cd target/${{ env.TARGET }}/release && tar czf lsp-ws-proxy.tar.gz lsp-ws-proxy
+#
+#      - name: Upload Binary
+#        uses: actions/upload-release-asset@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{ github.event.release.upload_url }}
+#          asset_path: target/${{ env.TARGET }}/release/lsp-ws-proxy.tar.gz
+#          asset_name: lsp-ws-proxy_linux-musl.tar.gz
+#          asset_content_type: application/octet-stream
