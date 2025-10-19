@@ -67,19 +67,6 @@ jobs:
           command: build
           args: --verbose --release --locked --target ${{matrix.target}}
 
-      - run: ls -lR target
-#      - run: cd target/release && tar czf ${{ env.BIN_FILE }}.tar.gz ${{ env.BIN_FILE }}
-
-#      - name: Upload Binary
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ github.event.release.upload_url }}
-#          asset_path: target/release/${{ env.BIN_FILE }}.tar.gz
-#          asset_name: lsp-ws-proxy_${{ matrix.name }}.tar.gz
-#          asset_content_type: application/octet-stream
-
       - name: Release
         uses: svenstaro/upload-release-action@v2
         with:
