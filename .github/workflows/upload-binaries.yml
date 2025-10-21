@@ -57,7 +57,7 @@ jobs:
           echo "TAG_NAME=$tag_name" >> $GITHUB_ENV
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@1.82.0
+        uses: dtolnay/rust-toolchain@1.90.0
         with:
           targets: ${{matrix.target}}
 
@@ -76,7 +76,6 @@ jobs:
           tag: ${{ env.TAG_NAME }}
           check_duplicates: true
           overwrite: true
-
 #  upload_musl:
 #    runs-on: ubuntu-latest
 #    env:
