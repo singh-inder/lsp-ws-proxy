@@ -21,15 +21,6 @@ impl Display for Id {
     }
 }
 
-/// Parameters for Request and Notification.
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[serde(untagged)]
-pub enum Params {
-    Array(Vec<serde_json::Value>),
-    Object(serde_json::Map<String, serde_json::Value>),
-}
-
 /// Unknown message type.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Unknown(serde_json::Value);

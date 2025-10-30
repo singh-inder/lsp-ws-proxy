@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use argh::FromArgs;
+use tracing_subscriber::{prelude::*, EnvFilter};
 use url::Url;
 use warp::{http, Filter};
 
@@ -52,8 +53,9 @@ struct Options {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_owned()))
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(EnvFilter::from_env("RUST_LOG"))
         .init();
 
     let (opts, commands) = get_opts_and_commands();
